@@ -15,7 +15,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ===== Reset & Base ===== */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -77,7 +77,9 @@ body{
   padding:0 24px;
 }
 .start-screen .logo{
-  font-size:42px;font-weight:700;letter-spacing:2px;
+  font-family:'Michroma','Space Grotesk',sans-serif;
+  font-size:36px;font-weight:400;letter-spacing:4px;
+  text-transform:uppercase;
   background:linear-gradient(135deg,#f5f5f5 0%,rgba(245,245,245,.5) 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   background-clip:text;
@@ -115,14 +117,6 @@ body{
   width:100%;
   padding:0 24px calc(40px + env(safe-area-inset-bottom));
   z-index:50;
-}
-.tune-preview{
-  width:100px;height:100px;
-  border-radius:24px;
-  margin-bottom:36px;
-  box-shadow:0 4px 24px rgba(0,0,0,.4);
-  border:2px solid rgba(245,245,245,.08);
-  transition:background-color .1s ease-out;
 }
 .sliders{width:100%;max-width:400px;display:flex;flex-direction:column;gap:28px}
 .slider-group{display:flex;flex-direction:column;gap:10px}
@@ -257,7 +251,6 @@ input[type=range]::-moz-range-thumb{
 
   <!-- Tune Controls -->
   <div class="tune-controls hide" id="tuneControls" role="group" aria-label="Color adjustment sliders">
-    <div class="tune-preview" id="tunePreview"></div>
     <div class="sliders">
       <div class="slider-group">
         <div class="slider-label"><span>Hue</span><span class="val" id="hVal">0</span></div>
@@ -322,7 +315,6 @@ const dom = {
   startScreen:  $('startScreen'),
   startBtn:     $('startBtn'),
   tuneControls: $('tuneControls'),
-  tunePreview:  $('tunePreview'),
   confirmBtn:   $('confirmBtn'),
   resultScreen: $('resultScreen'),
   scoreValue:   $('scoreValue'),
@@ -479,15 +471,15 @@ function getPlayerHSL() {
   };
 }
 
-/** Update preview swatch & dynamic slider gradients. */
+/** Update fullscreen background color & dynamic slider gradients. */
 function updatePreview() {
   const { h, s, l } = getPlayerHSL();
   dom.hVal.textContent = h;
   dom.sVal.textContent = s;
   dom.lVal.textContent = l;
 
-  // Color preview swatch (above sliders)
-  dom.tunePreview.style.backgroundColor = `hsl(${h},${s}%,${l}%)`;
+  // Fullscreen color background
+  dom.colorBg.style.backgroundColor = `hsl(${h},${s}%,${l}%)`;
 
   // Dynamic saturation gradient: grey → fully saturated
   dom.sliderS.style.background =
@@ -528,6 +520,9 @@ function startMemorize() {
 function startTune() {
   game.phase = 'tune';
   hideAll();
+
+  // Show fullscreen color background for live preview
+  dom.colorBg.classList.remove('hidden');
 
   // Reset sliders to neutral position
   dom.sliderH.value = 0;
