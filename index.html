@@ -221,6 +221,105 @@ input[type=range]::-moz-range-thumb{
   margin-top:8px;font-weight:400;letter-spacing:.3px;
 }
 
+/* ===== History Button ===== */
+.btn-history{
+  margin-top:12px;
+  min-width:160px;min-height:44px;
+  padding:12px 32px;
+  border:1.5px solid rgba(245,245,245,.2);
+  border-radius:14px;
+  background:transparent;color:rgba(245,245,245,.5);
+  font-family:inherit;
+  font-size:13px;font-weight:500;letter-spacing:1.5px;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:opacity .15s,transform .1s,border-color .2s,color .2s;
+}
+.btn-history:active{opacity:.7;transform:scale(.97)}
+
+/* ===== History Modal ===== */
+.history-modal{
+  position:fixed;inset:0;
+  z-index:500;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease;
+}
+.history-modal.open{
+  opacity:1;
+  pointer-events:auto;
+}
+.history-backdrop{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,.7);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+}
+.history-card{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;
+  background:rgba(10,10,10,.85);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-radius:20px;
+  padding:32px 28px 28px;
+  box-shadow:0 8px 40px rgba(0,0,0,.5);
+  border:1px solid rgba(245,245,245,.06);
+  max-width:320px;width:100%;
+  max-height:70vh;
+  animation:fadeIn .3s ease;
+}
+.history-card .label{
+  font-size:12px;color:rgba(245,245,245,.35);
+  text-transform:uppercase;letter-spacing:2px;font-weight:500;
+  margin-bottom:20px;
+}
+.history-list{
+  width:100%;
+  display:flex;flex-direction:column;gap:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.history-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 4px;
+  border-bottom:1px solid rgba(245,245,245,.05);
+}
+.history-item:last-child{border-bottom:none}
+.history-rank{
+  font-size:13px;font-weight:500;
+  color:rgba(245,245,245,.3);
+  font-variant-numeric:tabular-nums;
+  min-width:36px;text-align:left;
+}
+.history-score{
+  font-size:18px;font-weight:600;
+  font-variant-numeric:tabular-nums;
+  color:#f5f5f5;
+  letter-spacing:.5px;
+}
+.history-empty{
+  font-size:14px;color:rgba(245,245,245,.3);
+  font-weight:300;
+  padding:20px 0;
+}
+.btn-close{
+  margin-top:20px;
+  min-width:120px;min-height:40px;
+  padding:10px 28px;
+  border:1.5px solid rgba(245,245,245,.15);
+  border-radius:12px;
+  background:transparent;color:rgba(245,245,245,.5);
+  font-family:inherit;
+  font-size:13px;font-weight:500;letter-spacing:1px;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:opacity .15s,transform .1s;
+}
+.btn-close:active{opacity:.7;transform:scale(.97)}
+
 /* ===== Utility ===== */
 .hide{display:none!important}
 .fade-in{animation:fadeIn .4s ease}
@@ -247,6 +346,7 @@ input[type=range]::-moz-range-thumb{
     <div class="logo" role="heading" aria-level="1">WHAT'S NEXT</div>
     <div class="rules" id="rulesText" aria-live="polite"></div>
     <button class="btn btn-start hide" id="startBtn">Start</button>
+    <button class="btn-history hide" id="historyBtn">History</button>
   </div>
 
   <!-- Tune Controls -->
@@ -289,6 +389,16 @@ input[type=range]::-moz-range-thumb{
     <button class="btn" id="restartBtn">Play Again</button>
   </div>
 
+</div>
+
+<!-- History Modal -->
+<div class="history-modal" id="historyModal">
+  <div class="history-backdrop" id="historyBackdrop"></div>
+  <div class="history-card">
+    <div class="label">Top 10</div>
+    <div class="history-list" id="historyList"></div>
+    <button class="btn-close" id="historyClose">Close</button>
+  </div>
 </div>
 
 <script>
@@ -334,6 +444,11 @@ const dom = {
   sVal:         $('sVal'),
   lVal:         $('lVal'),
   rulesText:    $('rulesText'),
+  historyBtn:   $('historyBtn'),
+  historyModal: $('historyModal'),
+  historyBackdrop: $('historyBackdrop'),
+  historyList:  $('historyList'),
+  historyClose: $('historyClose'),
 };
 
 /* ============================================================
@@ -411,6 +526,59 @@ const game = {
 
 let timerEnd = 0;
 let timerRAF = null;
+
+/* ============================================================
+   Score Persistence (localStorage)
+   ============================================================ */
+
+const STORAGE_KEY = 'whatsnext_scores';
+
+/** Load saved scores from localStorage. Returns sorted array (desc). */
+function loadScores() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(e => typeof e.score === 'number')
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+  } catch { return []; }
+}
+
+/** Save a new score. Keeps top 10, sorted descending. */
+function saveScore(totalScore) {
+  const scores = loadScores();
+  scores.push({ score: Math.round(totalScore * 100) / 100 });
+  scores.sort((a, b) => b.score - a.score);
+  const top10 = scores.slice(0, 10);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(top10)); } catch {}
+}
+
+/** Render the history list into the modal. */
+function renderHistory() {
+  const scores = loadScores();
+  if (scores.length === 0) {
+    dom.historyList.innerHTML = '<div class="history-empty">No records yet</div>';
+    return;
+  }
+  dom.historyList.innerHTML = scores.map((entry, i) =>
+    `<div class="history-item">` +
+      `<span class="history-rank">#${i + 1}</span>` +
+      `<span class="history-score">${entry.score.toFixed(2)}</span>` +
+    `</div>`
+  ).join('');
+}
+
+function showHistory() {
+  renderHistory();
+  dom.historyModal.classList.add('open');
+}
+
+function hideHistory() {
+  dom.historyModal.classList.remove('open');
+}
 
 /* ============================================================
    UI Helpers
@@ -500,6 +668,13 @@ function showStart() {
   dom.startScreen.classList.remove('hide');
   dom.startScreen.classList.add('fade-in');
   typewriterEffect();
+
+  // Show History button only if there are saved scores
+  if (loadScores().length > 0) {
+    dom.historyBtn.classList.remove('hide');
+  } else {
+    dom.historyBtn.classList.add('hide');
+  }
 }
 
 function startMemorize() {
@@ -584,6 +759,9 @@ function showFinal() {
   const total = game.scores.reduce((a, b) => a + b, 0);
   animateNumber(dom.finalScore, 0, total, 800);
 
+  // Persist score to localStorage
+  saveScore(total);
+
   dom.totalBreakdown.textContent =
     game.scores.map((s, i) => `R${i + 1}: ${s.toFixed(2)}`).join('   ');
 }
@@ -660,6 +838,11 @@ dom.confirmBtn.addEventListener('click', () => {
 dom.nextBtn.addEventListener('click', nextRound);
 
 dom.restartBtn.addEventListener('click', showStart);
+
+// History modal
+dom.historyBtn.addEventListener('click', showHistory);
+dom.historyClose.addEventListener('click', hideHistory);
+dom.historyBackdrop.addEventListener('click', hideHistory);
 
 // Prevent iOS rubber-band scroll (except on sliders)
 document.addEventListener('touchmove', (e) => {
