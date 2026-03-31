@@ -300,6 +300,11 @@ input[type=range]::-moz-range-thumb{
   color:#f5f5f5;
   letter-spacing:.5px;
 }
+.history-date{
+  font-size:11px;font-weight:400;
+  color:rgba(245,245,245,.2);
+  flex:1;text-align:center;
+}
 .history-empty{
   font-size:14px;color:rgba(245,245,245,.3);
   font-weight:300;
@@ -550,7 +555,10 @@ function loadScores() {
 /** Save a new score. Keeps top 10, sorted descending. */
 function saveScore(totalScore) {
   const scores = loadScores();
-  scores.push({ score: Math.round(totalScore * 100) / 100 });
+  scores.push({
+    score: Math.round(totalScore * 100) / 100,
+    date: Date.now(),
+  });
   scores.sort((a, b) => b.score - a.score);
   const top10 = scores.slice(0, 10);
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(top10)); } catch {}
@@ -560,15 +568,19 @@ function saveScore(totalScore) {
 function renderHistory() {
   const scores = loadScores();
   if (scores.length === 0) {
-    dom.historyList.innerHTML = '<div class="history-empty">No records yet</div>';
+    dom.historyList.innerHTML = '<div class="history-empty">No records yet.<br>Play your first game!</div>';
     return;
   }
-  dom.historyList.innerHTML = scores.map((entry, i) =>
-    `<div class="history-item">` +
+  dom.historyList.innerHTML = scores.map((entry, i) => {
+    const dateStr = entry.date
+      ? new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '';
+    return `<div class="history-item">` +
       `<span class="history-rank">#${i + 1}</span>` +
+      `<span class="history-date">${dateStr}</span>` +
       `<span class="history-score">${entry.score.toFixed(2)}</span>` +
-    `</div>`
-  ).join('');
+    `</div>`;
+  }).join('');
 }
 
 function showHistory() {
@@ -592,6 +604,11 @@ function hideAll() {
   dom.colorBg.classList.add('hidden');
   dom.memorizeHint.classList.remove('show');
   dom.countdown.classList.add('hide');
+  // Clean up animation classes to allow re-triggering
+  dom.startScreen.classList.remove('fade-in');
+  dom.tuneControls.classList.remove('fade-in');
+  dom.resultScreen.classList.remove('fade-in');
+  dom.finalScreen.classList.remove('fade-in');
   cancelAnimationFrame(timerRAF);
 }
 
@@ -668,13 +685,6 @@ function showStart() {
   dom.startScreen.classList.remove('hide');
   dom.startScreen.classList.add('fade-in');
   typewriterEffect();
-
-  // Show History button only if there are saved scores
-  if (loadScores().length > 0) {
-    dom.historyBtn.classList.remove('hide');
-  } else {
-    dom.historyBtn.classList.add('hide');
-  }
 }
 
 function startMemorize() {
@@ -797,6 +807,7 @@ function typewriterEffect() {
   if (typewriterTimer) { clearTimeout(typewriterTimer); typewriterTimer = null; }
   dom.rulesText.innerHTML = '';
   dom.startBtn.classList.add('hide');
+  dom.historyBtn.classList.add('hide');
 
   let i = 0;
   const charDelay = TYPEWRITER_MS / RULES_TEXT.length;
@@ -812,6 +823,8 @@ function typewriterEffect() {
       dom.rulesText.innerHTML = RULES_TEXT.replace(/\n/g, '<br>');
       dom.startBtn.classList.remove('hide');
       dom.startBtn.classList.add('fade-in');
+      dom.historyBtn.classList.remove('hide');
+      dom.historyBtn.classList.add('fade-in');
       typewriterTimer = null;
     }
   }
